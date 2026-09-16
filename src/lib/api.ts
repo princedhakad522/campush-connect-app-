@@ -299,14 +299,12 @@ export async function deleteNotice(id: string) {
 
 // ---------------- Events ----------------
 
-export async function listEvents(): Promise<CampusEvent[]> {
+export async function listEvents(branch = ""): Promise<CampusEvent[]> {
   return run(async () => {
     const user = (await supabase.auth.getUser()).data.user;
-    const { data, error } = await supabase
-      .from("events")
-      .select("*")
-      .order("event_date")
-      .limit(100);
+    let q = supabase.from("events").select("*").order("event_date").limit(100);
+    if (branch) q = q.eq("branch", branch);
+    const { data, error } = await q;
     if (error) throw error;
 
     const events = (data ?? []) as CampusEvent[];
@@ -336,13 +334,14 @@ export async function createEvent(input: {
   event_date: string;
   location: string;
   category: string;
+  branch?: string;
   image_url?: string;
 }) {
   return run(async () => {
     const user = (await supabase.auth.getUser()).data.user;
     const { error } = await supabase
       .from("events")
-      .insert({ ...input, created_by: user?.id ?? null });
+      .insert({ ...input, branch: input.branch ?? "", created_by: user?.id ?? null });
     if (error) throw error;
     await notifyAllStudents({
       title: `New event: ${input.title}`,
@@ -380,13 +379,14 @@ export async function toggleRegistration(eventId: string) {
 
 // ---------------- Timetable ----------------
 
-export async function getTimetable(branch: string, semester: number): Promise<TimetableEntry[]> {
+export async function getTimetable(branch: string, semester: number, section = "A"): Promise<TimetableEntry[]> {
   return run(async () => {
     const { data, error } = await supabase
       .from("timetable")
       .select("*")
       .eq("branch", branch)
       .eq("semester", semester)
+      .eq("section", section)
       .order("day_of_week")
       .order("start_time");
     if (error) throw error;

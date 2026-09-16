@@ -17,7 +17,7 @@ import {
   ErrorBox,
   Badge,
 } from "../components/ui";
-import { EVENT_CATEGORIES } from "../lib/types";
+import { EVENT_CATEGORIES, EVENT_BRANCHES } from "../lib/types";
 import { cn, firstError, formatDateTime, isSetupError } from "../lib/utils";
 
 export default function Events() {
@@ -26,6 +26,7 @@ export default function Events() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
   const [tab, setTab] = useState<"upcoming" | "past">("upcoming");
+  const [branchTab, setBranchTab] = useState("all");
 
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
@@ -33,13 +34,14 @@ export default function Events() {
   const [eventDate, setEventDate] = useState("");
   const [location, setLocation] = useState("");
   const [category, setCategory] = useState("Workshop");
+  const [branch, setBranch] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
 
-  const load = async () => {
+  const load = async (b = branchTab) => {
     setLoading(true);
     try {
-      setEvents(await listEvents());
+      setEvents(await listEvents(b === "all" ? "" : b));
       setError(null);
     } catch (err) {
       setError(err);
@@ -50,7 +52,13 @@ export default function Events() {
 
   useEffect(() => {
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const switchBranch = (b: string) => {
+    setBranchTab(b);
+    load(b);
+  };
 
   const now = Date.now();
   const visible = events.filter((e) =>
@@ -71,12 +79,14 @@ export default function Events() {
         event_date: new Date(eventDate).toISOString(),
         location,
         category,
+        branch,
       });
       setOpen(false);
       setTitle("");
       setDescription("");
       setLocation("");
       setCategory("Workshop");
+      setBranch("");
       await load();
     } catch (err) {
       setFormError(firstError(err));
@@ -114,6 +124,23 @@ export default function Events() {
         ))}
       </div>
 
+      <div className="mb-5 flex flex-wrap gap-2">
+        {["all", ...EVENT_BRANCHES].map((b) => (
+          <button
+            key={b}
+            onClick={() => switchBranch(b)}
+            className={cn(
+              "rounded-full border px-3.5 py-1.5 text-sm font-medium transition",
+              branchTab === b
+                ? "border-brand-600 bg-brand-600 text-white"
+                : "border-slate-200 bg-white text-slate-600 hover:border-brand-300 hover:text-brand-700"
+            )}
+          >
+            {b === "all" ? "All Events" : b}
+          </button>
+        ))}
+      </div>
+
       {!!error && <ErrorBox error={error} setup={isSetupError(error)} onRetry={load} />}
 
       {loading ? (
@@ -141,7 +168,14 @@ export default function Events() {
                 <div className="flex flex-1 flex-col p-4">
                   <div className="flex items-center justify-between gap-2">
                     <Badge color="purple">{ev.category}</Badge>
-                    {!isUpcoming && <Badge color="slate">Completed</Badge>}
+                    <div className="flex items-center gap-1.5">
+                      {ev.branch ? (
+                        <Badge color="brand">{ev.branch}</Badge>
+                      ) : (
+                        <Badge color="slate">All</Badge>
+                      )}
+                      {!isUpcoming && <Badge color="slate">Completed</Badge>}
+                    </div>
                   </div>
                   <h3 className="mt-2 text-base font-semibold text-slate-900">{ev.title}</h3>
                   <p className="mt-1 line-clamp-3 flex-1 text-sm text-slate-500">{ev.description}</p>
@@ -203,6 +237,14 @@ export default function Events() {
           </div>
           <Field label="Location">
             <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Main Auditorium" />
+          </Field>
+          <Field label="Branch">
+            <Select value={branch} onChange={(e) => setBranch(e.target.value)}>
+              <option value="">All branches (campus-wide)</option>
+              {EVENT_BRANCHES.map((b) => (
+                <option key={b} value={b}>{b}</option>
+              ))}
+            </Select>
           </Field>
           {formError && <div className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{formError}</div>}
           <Button onClick={create} loading={submitting} className="w-full">

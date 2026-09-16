@@ -15,15 +15,17 @@ import {
   EmptyState,
   ErrorBox,
 } from "../components/ui";
-import { BranchSemesterFilter } from "../components/Filters";
-import { BRANCHES, SEMESTERS } from "../lib/types";
+import { BRANCHES, TIMETABLE_SECTIONS, YEARS, semestersForYear } from "../lib/types";
 import { cn, firstError, isSetupError } from "../lib/utils";
 import { CalendarClock } from "lucide-react";
 
 export default function Timetable() {
   const { profile, isStaff } = useAuth();
+  const defaultSem = profile?.semester ?? 1;
   const [branch, setBranch] = useState(profile?.branch ?? "CSE");
-  const [semester, setSemester] = useState<number | null>(profile?.semester ?? null);
+  const [year, setYear] = useState(Math.ceil(defaultSem / 2));
+  const [semester, setSemester] = useState<number>(defaultSem);
+  const [section, setSection] = useState("A");
   const [entries, setEntries] = useState<TimetableEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
@@ -35,7 +37,9 @@ export default function Timetable() {
   const [subject, setSubject] = useState("");
   const [room, setRoom] = useState("");
   const [entryBranch, setEntryBranch] = useState(branch);
-  const [entrySemester, setEntrySemester] = useState(semester ?? 1);
+  const [entryYear, setEntryYear] = useState(year);
+  const [entrySemester, setEntrySemester] = useState(semester);
+  const [entrySection, setEntrySection] = useState("A");
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
 
@@ -43,7 +47,7 @@ export default function Timetable() {
     if (!branch || semester == null) return;
     setLoading(true);
     try {
-      setEntries(await getTimetable(branch, semester));
+      setEntries(await getTimetable(branch, semester, section));
       setError(null);
     } catch (err) {
       setError(err);
@@ -54,7 +58,14 @@ export default function Timetable() {
 
   useEffect(() => {
     load();
-  }, [branch, semester]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [branch, semester, section]);
+
+  const changeYear = (y: number) => {
+    setYear(y);
+    const sems = semestersForYear(y);
+    setSemester(sems[0]);
+  };
 
   const byDay = DAY_LABELS.map((_, i) => entries.filter((e) => e.day_of_week === i));
 
@@ -69,6 +80,7 @@ export default function Timetable() {
       await upsertTimetableEntry({
         branch: entryBranch,
         semester: entrySemester,
+        section: entrySection,
         day_of_week: day,
         start_time: startTime,
         end_time: endTime,
@@ -91,7 +103,7 @@ export default function Timetable() {
     <div>
       <PageHeader
         title="Timetable"
-        subtitle={semester != null ? `${branch} · Semester ${semester}` : "Select branch & semester to see classes."}
+        subtitle={`${branch} · Year ${year} · Semester ${semester} · Section ${section}`}
         actions={
           isStaff && (
             <Button onClick={() => setOpen(true)}>
@@ -101,9 +113,55 @@ export default function Timetable() {
         }
       />
 
-      <div className="mb-5">
-        <BranchSemesterFilter branch={branch} setBranch={setBranch} semester={semester} setSemester={setSemester} />
+      <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <Field label="Branch">
+          <Select
+            value={branch}
+            onChange={(e) => {
+              setBranch(e.target.value);
+              setEntryBranch(e.target.value);
+            }}
+          >
+            {BRANCHES.map((b) => (
+              <option key={b} value={b}>{b}</option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Year">
+          <Select
+            value={year}
+            onChange={(e) => {
+              changeYear(Number(e.target.value));
+              setEntryYear(Number(e.target.value));
+            }}
+          >
+            {YEARS.map((y) => (
+              <option key={y} value={y}>Year {y}</option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Semester">
+          <Select
+            value={semester}
+            onChange={(e) => setSemester(Number(e.target.value))}
+          >
+            {semestersForYear(year).map((s) => (
+              <option key={s} value={s}>Semester {s}</option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Section">
+          <Select value={section} onChange={(e) => setSection(e.target.value)}>
+            {TIMETABLE_SECTIONS.map((s) => (
+              <option key={s} value={s}>Section {s}</option>
+            ))}
+          </Select>
+        </Field>
       </div>
+
+      <h2 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-600">
+        <CalendarDays className="h-4 w-4 text-brand-600" /> Weekly Timetable
+      </h2>
 
       {!!error && <ErrorBox error={error} setup={isSetupError(error)} onRetry={load} />}
 
@@ -113,7 +171,11 @@ export default function Timetable() {
         <EmptyState
           icon={<CalendarDays className="h-10 w-10" />}
           title="No classes yet"
-          subtitle={isStaff ? "Add the first class for this branch & semester." : "The timetable for this branch will be added soon."}
+          subtitle={
+            isStaff
+              ? "Add the first class for this branch, semester & section."
+              : `No timetable yet for ${branch} · Semester ${semester} · Section ${section}.`
+          }
         />
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -173,10 +235,33 @@ export default function Timetable() {
                 ))}
               </Select>
             </Field>
+            <Field label="Year">
+              <Select
+                value={entryYear}
+                onChange={(e) => {
+                  const y = Number(e.target.value);
+                  setEntryYear(y);
+                  setEntrySemester(semestersForYear(y)[0]);
+                }}
+              >
+                {YEARS.map((y) => (
+                  <option key={y} value={y}>Year {y}</option>
+                ))}
+              </Select>
+            </Field>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
             <Field label="Semester">
               <Select value={entrySemester} onChange={(e) => setEntrySemester(Number(e.target.value))}>
-                {SEMESTERS.map((s) => (
+                {semestersForYear(entryYear).map((s) => (
                   <option key={s} value={s}>{s}</option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Section">
+              <Select value={entrySection} onChange={(e) => setEntrySection(e.target.value)}>
+                {TIMETABLE_SECTIONS.map((s) => (
+                  <option key={s} value={s}>Section {s}</option>
                 ))}
               </Select>
             </Field>

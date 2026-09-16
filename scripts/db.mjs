@@ -39,13 +39,14 @@ const FILES = {
   schema: "0001_schema.sql",
   seed: "0002_seed.sql",
   role_requests: "0003_role_requests.sql",
+  branches_sections: "0004_branches_sections.sql",
   all: null,
 };
 
 const target = FILES[which];
 
 if (which === "all") {
-  for (const f of [FILES.schema, FILES.seed, FILES.role_requests]) {
+  for (const f of [FILES.schema, FILES.seed, FILES.role_requests, FILES.branches_sections]) {
     const sql = await readFile(resolve(root, f), "utf8");
     await runSql(sql, f);
   }

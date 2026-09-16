@@ -64,6 +64,7 @@ export interface CampusEvent {
   location: string;
   image_url: string;
   category: string;
+  branch: string;
   created_by: string | null;
   created_at: string;
   registered?: boolean;
@@ -74,6 +75,7 @@ export interface TimetableEntry {
   id: string;
   branch: string;
   semester: number;
+  section: string;
   day_of_week: number;
   start_time: string;
   end_time: string;
@@ -187,6 +189,16 @@ export const BRANCHES = [
 ];
 
 export const SEMESTERS = [1, 2, 3, 4, 5, 6, 7, 8];
+
+export const YEARS = [1, 2, 3, 4] as const;
+
+export const TIMETABLE_SECTIONS = ["A", "B", "C"] as const;
+
+export function semestersForYear(year: number): number[] {
+  return SEMESTERS.filter((s) => Math.ceil(s / 2) === year);
+}
+
+export const EVENT_BRANCHES = ["CSE", "Electrical", "Mechanical", "Cyber Security"] as const;
 
 export const EVENT_CATEGORIES = [
   "Hackathon",
