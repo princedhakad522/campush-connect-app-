@@ -210,6 +210,16 @@ export const DAY_LABELS = [
   "Sunday",
 ];
 
+export const COLLEGE_TIMINGS: Record<number, { start: string; end: string; label: string; type: "full" | "half" | "holiday" }> = {
+  0: { start: "10:00 AM", end: "5:00 PM", label: "Full Day", type: "full" },
+  1: { start: "10:00 AM", end: "5:00 PM", label: "Full Day", type: "full" },
+  2: { start: "10:00 AM", end: "1:00 PM", label: "Half Day", type: "half" },
+  3: { start: "10:00 AM", end: "5:00 PM", label: "Full Day", type: "full" },
+  4: { start: "10:00 AM", end: "5:00 PM", label: "Full Day", type: "full" },
+  5: { start: "—", end: "—", label: "Holiday", type: "holiday" },
+  6: { start: "—", end: "—", label: "Holiday", type: "holiday" },
+};
+
 export const BRANCHES = [
   "CSE",
   "IT",

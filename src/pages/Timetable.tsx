@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { CalendarDays, Plus, Trash2 } from "lucide-react";
+import { CalendarDays, Plus, Trash2, Clock, Lock } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { getTimetable, upsertTimetableEntry, deleteTimetableEntry } from "../lib/api";
-import { DAY_LABELS, type TimetableEntry } from "../lib/types";
+import { DAY_LABELS, COLLEGE_TIMINGS, type TimetableEntry } from "../lib/types";
 import {
   PageHeader,
   Button,
@@ -14,10 +14,30 @@ import {
   Spinner,
   EmptyState,
   ErrorBox,
+  Badge,
 } from "../components/ui";
 import { BRANCHES, TIMETABLE_SECTIONS, YEARS, semestersForYear } from "../lib/types";
 import { cn, firstError, isSetupError } from "../lib/utils";
 import { CalendarClock } from "lucide-react";
+
+function timeToMinutes(t: string): number {
+  const m = t.match(/(\d+):(\d+)/);
+  if (!m) return 0;
+  const h = parseInt(m[1]);
+  const min = parseInt(m[2]);
+  const isPM = t.toLowerCase().includes("pm");
+  const h24 = isPM && h !== 12 ? h + 12 : !isPM && h === 12 ? 0 : h;
+  return h24 * 60 + min;
+}
+
+function isWithinTimingWindow(start: string, end: string, dayIndex: number): boolean {
+  const timing = COLLEGE_TIMINGS[dayIndex];
+  if (!timing || timing.type === "holiday") return false;
+  const windowStart = timeToMinutes(timing.start);
+  const windowEnd = timeToMinutes(timing.end);
+  const entryStart = timeToMinutes(start);
+  return entryStart < windowEnd && timeToMinutes(end) > windowStart;
+}
 
 export default function Timetable() {
   const { profile, isStaff } = useAuth();
@@ -32,8 +52,8 @@ export default function Timetable() {
 
   const [open, setOpen] = useState(false);
   const [day, setDay] = useState(0);
-  const [startTime, setStartTime] = useState("09:00");
-  const [endTime, setEndTime] = useState("10:00");
+  const [startTime, setStartTime] = useState("10:00");
+  const [endTime, setEndTime] = useState("11:00");
   const [subject, setSubject] = useState("");
   const [room, setRoom] = useState("");
   const [entryBranch, setEntryBranch] = useState(branch);
@@ -67,7 +87,11 @@ export default function Timetable() {
     setSemester(sems[0]);
   };
 
-  const byDay = DAY_LABELS.map((_, i) => entries.filter((e) => e.day_of_week === i));
+  const byDay = DAY_LABELS.map((_, i) => {
+    const timing = COLLEGE_TIMINGS[i];
+    if (timing.type === "holiday") return [];
+    return entries.filter((e) => e.day_of_week === i && isWithinTimingWindow(e.start_time, e.end_time, i));
+  });
 
   const submit = async () => {
     if (!subject.trim()) {
@@ -102,7 +126,7 @@ export default function Timetable() {
   return (
     <div>
       <PageHeader
-        title="Timetable"
+        title="B.Tech Class Timetable"
         subtitle={`${branch} · Year ${year} · Semester ${semester} · Section ${section}`}
         actions={
           isStaff && (
@@ -159,6 +183,41 @@ export default function Timetable() {
         </Field>
       </div>
 
+      {/* College Timing Summary */}
+      <Card className="mb-6 overflow-hidden">
+        <div className="flex items-center gap-2 border-b border-slate-100 bg-slate-50 px-4 py-2.5">
+          <Clock className="h-4 w-4 text-brand-600" />
+          <h3 className="text-sm font-semibold text-slate-800">College Timing Schedule</h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-100 bg-slate-50/50">
+                <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600">Day</th>
+                <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600">College Timing</th>
+                <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {DAY_LABELS.map((label, i) => {
+                const timing = COLLEGE_TIMINGS[i];
+                const color =
+                  timing.type === "holiday" ? "red" : timing.type === "half" ? "amber" : "green";
+                return (
+                  <tr key={label}>
+                    <td className="px-4 py-2 font-medium text-slate-700">{label}</td>
+                    <td className="px-4 py-2 text-slate-600">{timing.start} – {timing.end}</td>
+                    <td className="px-4 py-2">
+                      <Badge color={color}>{timing.label}</Badge>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
       <h2 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-600">
         <CalendarDays className="h-4 w-4 text-brand-600" /> Weekly Timetable
       </h2>
@@ -180,18 +239,36 @@ export default function Timetable() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {DAY_LABELS.map((label, i) => {
+            const timing = COLLEGE_TIMINGS[i];
             const dayEntries = byDay[i];
-            if (dayEntries.length === 0 && entries.length) return null;
+
+            if (timing.type === "holiday") {
+              return (
+                <Card key={label} className="overflow-hidden border-red-200 bg-red-50/50">
+                  <div className="flex items-center gap-2 border-b border-red-200 bg-red-100 px-4 py-2.5">
+                    <Lock className="h-4 w-4 text-red-500" />
+                    <h3 className="text-sm font-semibold text-red-700">{label}</h3>
+                    <Badge color="red" className="ml-auto">{timing.label}</Badge>
+                  </div>
+                  <div className="p-4 text-center">
+                    <p className="text-xs font-medium text-red-600">No classes — College is closed.</p>
+                  </div>
+                </Card>
+              );
+            }
+
             return (
               <Card key={label} className="overflow-hidden">
                 <div className="flex items-center gap-2 border-b border-slate-100 bg-slate-50 px-4 py-2.5">
                   <CalendarClock className="h-4 w-4 text-brand-600" />
                   <h3 className="text-sm font-semibold text-slate-800">{label}</h3>
-                  <span className="ml-auto text-xs text-slate-400">{dayEntries.length} class{dayEntries.length !== 1 && "es"}</span>
+                  <Badge color={timing.type === "half" ? "amber" : "green"} className="ml-auto">
+                    {timing.label} · {timing.start} – {timing.end}
+                  </Badge>
                 </div>
                 <div className={cn("divide-y divide-slate-50", dayEntries.length === 0 && "p-4")}>
                   {dayEntries.length === 0 ? (
-                    <div className="text-center text-xs text-slate-400">No classes / Free day</div>
+                    <div className="text-center text-xs text-slate-400">No classes scheduled</div>
                   ) : (
                     dayEntries.map((e) => (
                       <div key={e.id} className="group flex items-center gap-3 px-4 py-3">
@@ -227,6 +304,9 @@ export default function Timetable() {
 
       <Modal open={open} onClose={() => setOpen(false)} title="Add timetable entry">
         <div className="space-y-3">
+          <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
+            <strong>Note:</strong> Classes run 10:00 AM – 5:00 PM (Mon/Tue/Thu/Fri) or 10:00 AM – 1:00 PM (Wed). Saturday & Sunday are holidays.
+          </p>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Branch">
               <Select value={entryBranch} onChange={(e) => setEntryBranch(e.target.value)}>
@@ -268,16 +348,21 @@ export default function Timetable() {
           </div>
           <Field label="Day">
             <Select value={day} onChange={(e) => setDay(Number(e.target.value))}>
-              {DAY_LABELS.map((d, i) => (
-                <option key={d} value={i}>{d}</option>
-              ))}
+              {DAY_LABELS.map((d, i) => {
+                const t = COLLEGE_TIMINGS[i];
+                return (
+                  <option key={d} value={i} disabled={t.type === "holiday"}>
+                    {d} {t.type === "holiday" ? "— Holiday" : `— ${t.label}`}
+                  </option>
+                );
+              })}
             </Select>
           </Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Start">
+            <Field label="Start time">
               <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
             </Field>
-            <Field label="End">
+            <Field label="End time">
               <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
             </Field>
           </div>
