@@ -40,13 +40,14 @@ const FILES = {
   seed: "0002_seed.sql",
   role_requests: "0003_role_requests.sql",
   branches_sections: "0004_branches_sections.sql",
+  canteen_faculty: "0005_canteen_faculty.sql",
   all: null,
 };
 
 const target = FILES[which];
 
 if (which === "all") {
-  for (const f of [FILES.schema, FILES.seed, FILES.role_requests, FILES.branches_sections]) {
+  for (const f of [FILES.schema, FILES.seed, FILES.role_requests, FILES.branches_sections, FILES.canteen_faculty]) {
     const sql = await readFile(resolve(root, f), "utf8");
     await runSql(sql, f);
   }

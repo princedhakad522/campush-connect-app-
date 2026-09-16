@@ -15,6 +15,8 @@ import LostFound from "./pages/LostFound";
 import Community from "./pages/Community";
 import Notifications from "./pages/Notifications";
 import Departments from "./pages/Departments";
+import Canteen from "./pages/Canteen";
+import HODs from "./pages/HODs";
 import Admin from "./pages/Admin";
 import Profile from "./pages/Profile";
 
@@ -120,6 +122,26 @@ export default function App() {
           <Protected>
             <Layout>
               <Events />
+            </Layout>
+          </Protected>
+        }
+      />
+      <Route
+        path="/canteen"
+        element={
+          <Protected>
+            <Layout>
+              <Canteen />
+            </Layout>
+          </Protected>
+        }
+      />
+      <Route
+        path="/hods"
+        element={
+          <Protected>
+            <Layout>
+              <HODs />
             </Layout>
           </Protected>
         }

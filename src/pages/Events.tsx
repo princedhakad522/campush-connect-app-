@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { PartyPopper, Plus, MapPin, CalendarDays, Check } from "lucide-react";
+import { PartyPopper, Plus, MapPin, CalendarDays, Check, Clock, ClipboardList } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { listEvents, createEvent, toggleRegistration } from "../lib/api";
 import type { CampusEvent } from "../lib/types";
@@ -25,7 +25,7 @@ export default function Events() {
   const [events, setEvents] = useState<CampusEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
-  const [tab, setTab] = useState<"upcoming" | "past">("upcoming");
+  const [tab, setTab] = useState<"upcoming" | "ongoing" | "past">("upcoming");
   const [branchTab, setBranchTab] = useState("all");
 
   const [open, setOpen] = useState(false);
@@ -35,6 +35,10 @@ export default function Events() {
   const [location, setLocation] = useState("");
   const [category, setCategory] = useState("Workshop");
   const [branch, setBranch] = useState("");
+  const [startTime, setStartTime] = useState("10:00 AM");
+  const [endTime, setEndTime] = useState("04:00 PM");
+  const [organizer, setOrganizer] = useState("");
+  const [registrationInfo, setRegistrationInfo] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
 
@@ -61,9 +65,20 @@ export default function Events() {
   };
 
   const now = Date.now();
-  const visible = events.filter((e) =>
-    tab === "upcoming" ? new Date(e.event_date).getTime() >= now : new Date(e.event_date).getTime() < now
-  );
+
+  const parseEventTime = (ev: CampusEvent) => {
+    const d = new Date(ev.event_date).getTime();
+    const startH = parseInt(ev.start_time?.match(/\d+/)?.[0] ?? "10") || 10;
+    return { d, startH };
+  };
+
+  const visible = events.filter((e) => {
+    const { d } = parseEventTime(e);
+    if (tab === "ongoing") {
+      return Math.abs(d - now) < 24 * 60 * 60 * 1000 && d <= now;
+    }
+    return tab === "upcoming" ? d >= now : d < now;
+  });
 
   const create = async () => {
     if (!title.trim() || !eventDate) {
@@ -80,6 +95,10 @@ export default function Events() {
         location,
         category,
         branch,
+        start_time: startTime,
+        end_time: endTime,
+        organizer,
+        registration_info: registrationInfo,
       });
       setOpen(false);
       setTitle("");
@@ -87,6 +106,10 @@ export default function Events() {
       setLocation("");
       setCategory("Workshop");
       setBranch("");
+      setStartTime("10:00 AM");
+      setEndTime("04:00 PM");
+      setOrganizer("");
+      setRegistrationInfo("");
       await load();
     } catch (err) {
       setFormError(firstError(err));
@@ -110,7 +133,7 @@ export default function Events() {
       />
 
       <div className="mb-4 inline-flex rounded-lg border border-slate-200 bg-white p-1">
-        {(["upcoming", "past"] as const).map((t) => (
+        {(["upcoming", "ongoing", "past"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -148,7 +171,7 @@ export default function Events() {
       ) : visible.length === 0 && !error ? (
         <EmptyState
           icon={<PartyPopper className="h-10 w-10" />}
-          title={tab === "upcoming" ? "No upcoming events" : "No past events"}
+          title={tab === "upcoming" ? "No upcoming events" : tab === "ongoing" ? "No ongoing events" : "No past events"}
           subtitle={isStaff ? "Create the next big campus event." : "Check back soon for new events."}
         />
       ) : (
@@ -156,6 +179,7 @@ export default function Events() {
           {visible.map((ev) => {
             const date = new Date(ev.event_date);
             const isUpcoming = date.getTime() >= now;
+            const isOngoing = !isUpcoming && Math.abs(date.getTime() - now) < 24 * 60 * 60 * 1000;
             return (
               <Card key={ev.id} className="flex flex-col overflow-hidden">
                 {ev.image_url ? (
@@ -174,18 +198,30 @@ export default function Events() {
                       ) : (
                         <Badge color="slate">All</Badge>
                       )}
-                      {!isUpcoming && <Badge color="slate">Completed</Badge>}
+                      {isOngoing && <Badge color="green">Ongoing</Badge>}
+                      {tab === "past" && <Badge color="slate">Completed</Badge>}
                     </div>
                   </div>
                   <h3 className="mt-2 text-base font-semibold text-slate-900">{ev.title}</h3>
+                  {ev.organizer && <p className="mt-0.5 text-xs font-medium text-brand-600">{ev.organizer}</p>}
                   <p className="mt-1 line-clamp-3 flex-1 text-sm text-slate-500">{ev.description}</p>
                   <div className="mt-3 space-y-1 text-xs text-slate-500">
                     <div className="flex items-center gap-1.5">
                       <CalendarDays className="h-3.5 w-3.5 text-brand-500" /> {formatDateTime(ev.event_date)}
                     </div>
+                    {(ev.start_time || ev.end_time) && (
+                      <div className="flex items-center gap-1.5">
+                        <Clock className="h-3.5 w-3.5 text-brand-500" /> {ev.start_time || "—"} – {ev.end_time || "—"}
+                      </div>
+                    )}
                     {ev.location && (
                       <div className="flex items-center gap-1.5">
                         <MapPin className="h-3.5 w-3.5 text-brand-500" /> {ev.location}
+                      </div>
+                    )}
+                    {ev.registration_info && (
+                      <div className="flex items-start gap-1.5">
+                        <ClipboardList className="mt-0.5 h-3.5 w-3.5 text-brand-500" /> {ev.registration_info}
                       </div>
                     )}
                   </div>
@@ -238,13 +274,29 @@ export default function Events() {
           <Field label="Location">
             <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Main Auditorium" />
           </Field>
-          <Field label="Branch">
-            <Select value={branch} onChange={(e) => setBranch(e.target.value)}>
-              <option value="">All branches (campus-wide)</option>
-              {EVENT_BRANCHES.map((b) => (
-                <option key={b} value={b}>{b}</option>
-              ))}
-            </Select>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Start time">
+              <Input value={startTime} onChange={(e) => setStartTime(e.target.value)} placeholder="10:00 AM" />
+            </Field>
+            <Field label="End time">
+              <Input value={endTime} onChange={(e) => setEndTime(e.target.value)} placeholder="04:00 PM" />
+            </Field>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Organizer">
+              <Input value={organizer} onChange={(e) => setOrganizer(e.target.value)} placeholder="e.g. Students Activity Cell" />
+            </Field>
+            <Field label="Branch">
+              <Select value={branch} onChange={(e) => setBranch(e.target.value)}>
+                <option value="">All branches (campus-wide)</option>
+                {EVENT_BRANCHES.map((b) => (
+                  <option key={b} value={b}>{b}</option>
+                ))}
+              </Select>
+            </Field>
+          </div>
+          <Field label="Registration info (optional)">
+            <Input value={registrationInfo} onChange={(e) => setRegistrationInfo(e.target.value)} placeholder="e.g. Free entry · Register on campus" />
           </Field>
           {formError && <div className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{formError}</div>}
           <Button onClick={create} loading={submitting} className="w-full">

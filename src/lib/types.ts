@@ -65,10 +65,43 @@ export interface CampusEvent {
   image_url: string;
   category: string;
   branch: string;
+  organizer: string;
+  start_time: string;
+  end_time: string;
+  registration_info: string;
   created_by: string | null;
   created_at: string;
   registered?: boolean;
   registrations?: number;
+}
+
+export interface CanteenItem {
+  id: string;
+  name: string;
+  price: number;
+  category: string;
+  available: boolean;
+  emoji: string;
+  created_at: string;
+}
+
+export interface CanteenMeta {
+  open_time: string;
+  close_time: string;
+  announcement: string;
+}
+
+export interface Faculty {
+  id: string;
+  name: string;
+  designation: string;
+  department: string;
+  role: "HOD" | "Faculty";
+  email: string;
+  phone: string;
+  photo_url: string;
+  bio: string;
+  created_at: string;
 }
 
 export interface TimetableEntry {
@@ -239,3 +272,17 @@ export interface RoleRequest {
   reviewed_by: string | null;
   user?: Pick<Profile, "full_name" | "email"> | null;
 }
+
+export const CANTEEN_CATEGORIES = ["Breakfast", "Lunch", "Snacks", "Beverages", "Dinner", "Other"] as const;
+
+export const DEPARTMENT_LIST = [
+  "Computer Science & Engineering",
+  "Information Technology",
+  "Electrical Engineering",
+  "Electronics & Communication",
+  "Mechanical Engineering",
+  "Civil Engineering",
+  "Mathematics",
+  "Physics",
+  "Chemistry",
+] as const;

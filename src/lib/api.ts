@@ -4,9 +4,12 @@ import type {
   Assignment,
   AttendanceRecord,
   CampusEvent,
+  CanteenItem,
+  CanteenMeta,
   Department,
   Discussion,
   DiscussionReply,
+  Faculty,
   LostFoundItem,
   Note,
   Notice,
@@ -335,13 +338,25 @@ export async function createEvent(input: {
   location: string;
   category: string;
   branch?: string;
+  organizer?: string;
+  start_time?: string;
+  end_time?: string;
+  registration_info?: string;
   image_url?: string;
 }) {
   return run(async () => {
     const user = (await supabase.auth.getUser()).data.user;
     const { error } = await supabase
       .from("events")
-      .insert({ ...input, branch: input.branch ?? "", created_by: user?.id ?? null });
+      .insert({
+        ...input,
+        branch: input.branch ?? "",
+        organizer: input.organizer ?? "",
+        start_time: input.start_time ?? "",
+        end_time: input.end_time ?? "",
+        registration_info: input.registration_info ?? "",
+        created_by: user?.id ?? null,
+      });
     if (error) throw error;
     await notifyAllStudents({
       title: `New event: ${input.title}`,
@@ -867,4 +882,97 @@ export async function getHomeStats() {
       unreadNotifications: count(notifs),
     };
   });
+}
+
+// ---------------- Canteen ----------------
+
+export async function listCanteenMenu(): Promise<CanteenItem[]> {
+  return run(async () => {
+    const { data, error } = await supabase
+      .from("canteen_menu")
+      .select("*")
+      .order("category")
+      .order("name");
+    if (error) throw error;
+    return (data ?? []) as CanteenItem[];
+  });
+}
+
+export async function getCanteenMeta(): Promise<CanteenMeta | null> {
+  return run(async () => {
+    const { data, error } = await supabase
+      .from("canteen_meta")
+      .select("*")
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    return data as CanteenMeta | null;
+  });
+}
+
+export async function addCanteenItem(input: {
+  name: string;
+  price: number;
+  category: string;
+  available: boolean;
+  emoji: string;
+}) {
+  const { error } = await supabase.from("canteen_menu").insert(input);
+  if (error) throw new Error(error.message);
+}
+
+export async function updateCanteenItem(
+  id: string,
+  patch: { name?: string; price?: number; category?: string; available?: boolean; emoji?: string }
+) {
+  const { error } = await supabase.from("canteen_menu").update(patch).eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteCanteenItem(id: string) {
+  const { error } = await supabase.from("canteen_menu").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function updateCanteenMeta(patch: { open_time?: string; close_time?: string; announcement?: string }) {
+  const { error } = await supabase.from("canteen_meta").update(patch).eq("id", true);
+  if (error) throw new Error(error.message);
+}
+
+// ---------------- Faculty / HOD ----------------
+
+export async function listFaculty(): Promise<Faculty[]> {
+  return run(async () => {
+    const { data, error } = await supabase
+      .from("faculty")
+      .select("*")
+      .order("department")
+      .order("role");
+    if (error) throw error;
+    return (data ?? []) as Faculty[];
+  });
+}
+
+export async function addFaculty(input: {
+  name: string;
+  designation: string;
+  department: string;
+  role: "HOD" | "Faculty";
+  email?: string;
+  phone?: string;
+  photo_url?: string;
+  bio?: string;
+}) {
+  const { error } = await supabase.from("faculty").insert(input);
+  if (error) throw new Error(error.message);
+}
+
+export async function updateFaculty(id: string, patch: Partial<Faculty>) {
+  const { error } = await supabase.from("faculty").update(patch).eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteFaculty(id: string) {
+  const { error } = await supabase.from("faculty").delete().eq("id", id);
+  if (error) throw new Error(error.message);
 }

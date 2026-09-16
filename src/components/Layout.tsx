@@ -18,6 +18,8 @@ import {
   CheckCheck,
   Trash2,
   School,
+  Users,
+  UtensilsCrossed,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { logoutUser, listMyNotifications, markAllNotificationsRead, clearNotifications, markNotificationRead } from "../lib/api";
@@ -73,9 +75,11 @@ export default function Layout({ children }: { children: ReactNode }) {
     { to: "/attendance", label: "Attendance", icon: <ClipboardCheck className="h-4 w-4" /> },
     { to: "/assignments", label: "Assignments", icon: <FileText className="h-4 w-4" /> },
     { to: "/events", label: "Events", icon: <PartyPopper className="h-4 w-4" /> },
+    { to: "/canteen", label: "Canteen", icon: <UtensilsCrossed className="h-4 w-4" /> },
+    { to: "/hods", label: "Faculty & HODs", icon: <Users className="h-4 w-4" /> },
     { to: "/lost-found", label: "Lost & Found", icon: <Search className="h-4 w-4" /> },
     { to: "/community", label: "Community", icon: <MessagesSquare className="h-4 w-4" /> },
-    { to: "/departments", label: "Departments", icon: <School className="h-4 w-4" /> },
+    { to: "/departments", label: "Departments", icon: <School className="h-4 w-4" />, staff: true },
     { to: "/admin", label: "Admin Panel", icon: <ShieldCheck className="h-4 w-4" />, admin: true },
   ];
 
@@ -83,18 +87,20 @@ export default function Layout({ children }: { children: ReactNode }) {
     <div className="flex min-h-screen bg-slate-50">
       {/* Sidebar */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-slate-200 bg-white lg:flex">
-        <div className="flex h-14 items-center gap-2 border-b border-slate-100 px-4">
-          <GraduationCap className="h-6 w-6 text-brand-600" />
-          <div>
-            <div className="text-sm font-bold leading-tight text-slate-900">Campus Connect</div>
-            <div className="text-[10px] uppercase tracking-widest text-slate-400">
-              Your Campus. Your Community.
+        <div className="flex h-16 items-center gap-2 border-b border-slate-100 px-4">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-600 text-white">
+            <GraduationCap className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <div className="truncate text-sm font-bold leading-tight text-slate-900">Campus Connect</div>
+            <div className="truncate text-[10px] uppercase tracking-widest text-slate-400">
+              SATI · Vidisha
             </div>
           </div>
         </div>
         <nav className="flex-1 space-y-0.5 overflow-y-auto p-3">
           {nav.map((item) =>
-            (item.staff && !isStaff) || (item.admin && !isAdmin) || item.to === "/departments" ? null : (
+            (item.staff && !isStaff) || (item.admin && !isAdmin) ? null : (
               <NavLink
                 key={item.to}
                 to={item.to}
@@ -134,7 +140,9 @@ export default function Layout({ children }: { children: ReactNode }) {
       {/* Mobile top nav */}
       <div className="fixed inset-x-0 top-0 z-30 flex h-14 items-center justify-between border-b border-slate-200 bg-white px-4 lg:hidden">
         <Link to="/" className="flex items-center gap-2">
-          <GraduationCap className="h-5 w-5 text-brand-600" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-white">
+            <GraduationCap className="h-4 w-4" />
+          </div>
           <span className="text-sm font-bold text-slate-900">Campus Connect</span>
         </Link>
         <div className="flex items-center gap-1">
